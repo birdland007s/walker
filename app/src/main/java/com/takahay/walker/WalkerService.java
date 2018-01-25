@@ -40,6 +40,8 @@ import com.google.android.gms.location.SettingsClient;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.common.ConnectionResult;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -64,6 +66,7 @@ import java.util.Locale;
  * Created by takahay on 2018/01/22.
  */
 
+
 public class WalkerService extends Service {
     private static final String TAG = "WalkerService";
 
@@ -72,19 +75,9 @@ public class WalkerService extends Service {
      */
     private static final int REQUEST_CHECK_SETTINGS = 0x1;
 
-    /**
-     * The desired interval for location updates. Inexact. Updates may be more or less frequent.
-     */
-    private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 30000;
-
-    private static final float LOCATION_DISTANCE = 10f;
-
     private static final long LOCATION_STACK_NUMBER = 5;
 
     private static final String BASEURL = "https://ancient-dawn-23054.herokuapp.com/";
-
-    private LocationManager mLocationManager = null;
-
 
     /**
      * Stores the types of location services the client is interested in using. Used for checking
@@ -92,11 +85,35 @@ public class WalkerService extends Service {
      */
     private LocationSettingsRequest mLocationSettingsRequest;
 
-    /**
-     * Callback for Location events.
-     */
-    private LocationCallback mLocationCallback;
+    /*
+    *   Structure for Stock Data
+    * */
+    private class LocationData {
+        public double longitude;
+        public double latitude;
+        public String time;
+    }
+    private ArrayList<LocationData> LocationDataArray = new ArrayList<>();
 
+    private LocationCallBack callback = new LocationCallBack() {
+        @Override
+        public void stackLocation(Location location) {
+            if (location != null) {
+
+                LocationData lct = new LocationData();
+                lct.latitude = location.getLatitude();
+                lct.longitude = location.getLongitude();
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+                lct.time = sdf.format(new Date());
+                LocationDataArray.add(lct);
+            }
+
+            Log.i(TAG, String.format("LocationDataArrayCount=%d", LocationDataArray.size()) );
+            if( LocationDataArray.size() > LOCATION_STACK_NUMBER - 1 ) {
+                new HttpResponsAsync().execute("api/entries/");
+            }
+        }
+    };
 
     /**
      *   Service
@@ -114,7 +131,28 @@ public class WalkerService extends Service {
         Log.i(TAG, "onStartCommand");
         super.onStartCommand(intent, flags, startId);
 
-        startLocationUpdates();
+        int resultCode = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(getApplicationContext());
+        if (resultCode != ConnectionResult.SUCCESS) {
+            Log.i(TAG, "Google Play Services are not available.code=" + Integer.toString(resultCode));
+
+            com.takahay.walker.Location walkerLocation =
+                    new com.takahay.walker.Location( getApplicationContext(), callback );
+            walkerLocation.startLocationUpdates();
+
+        }
+        else
+        {
+            Log.i(TAG, "Google Play Services are available.code=" + Integer.toString(resultCode));
+
+            com.takahay.walker.googleLocation googleLocation =
+                    new com.takahay.walker.googleLocation( getApplicationContext(), callback );
+
+            Log.i(TAG, "finish create googleLocation");
+
+            googleLocation.createRequest();
+
+            Log.i(TAG, "finish create googleLocation request");
+        }
 
         return START_STICKY;
     }
@@ -131,104 +169,6 @@ public class WalkerService extends Service {
     {
         Log.i(TAG, "onDestroy");
 
-    }
-
-    /*
-    *   Structure for Stock Data
-    * */
-    private class LocationData {
-        public double longitude;
-        public double latitude;
-        public String time;
-    }
-    private ArrayList<LocationData> LocationDataArray = new ArrayList<>();
-
-    private class LocationListener implements android.location.LocationListener{
-        Location mLastLocation;
-        public LocationListener(String provider)
-        {
-            Log.i(TAG, "LocationListener " + provider);
-            mLastLocation = new Location(provider);
-        }
-        @Override
-        public void onLocationChanged(Location location)
-        {
-            Log.i(TAG, "onLocationChanged: " + location);
-            mLastLocation.set(location);
-
-            stackLocation(location);
-        }
-        @Override
-        public void onProviderDisabled(String provider)
-        {
-            Log.i(TAG, "onProviderDisabled: " + provider);
-        }
-        @Override
-        public void onProviderEnabled(String provider)
-        {
-            Log.i(TAG, "onProviderEnabled: " + provider);
-        }
-        @Override
-        public void onStatusChanged(String provider, int status, Bundle extras)
-        {
-            Log.i(TAG, "onStatusChanged: " + provider);
-        }
-    }
-    LocationListener[] mLocationListeners = new LocationListener[] {
-            new LocationListener(LocationManager.GPS_PROVIDER),
-            new LocationListener(LocationManager.NETWORK_PROVIDER)
-    };
-
-    /**
-     * Requests location updates from the FusedLocationApi. Note: we don't call this unless location
-     * runtime permission has been granted.
-     */
-    private void startLocationUpdates() {
-        Log.e(TAG, "onCreate");
-        initializeLocationManager();
-        try {
-            mLocationManager.requestLocationUpdates(
-                    LocationManager.NETWORK_PROVIDER, UPDATE_INTERVAL_IN_MILLISECONDS, LOCATION_DISTANCE,
-                    mLocationListeners[1]);
-        } catch (java.lang.SecurityException ex) {
-            Log.i(TAG, "fail to request location update, ignore", ex);
-        } catch (IllegalArgumentException ex) {
-            Log.d(TAG, "network provider does not exist, " + ex.getMessage());
-        }
-        try {
-            mLocationManager.requestLocationUpdates(
-                    LocationManager.GPS_PROVIDER, UPDATE_INTERVAL_IN_MILLISECONDS, LOCATION_DISTANCE,
-                    mLocationListeners[0]);
-        } catch (java.lang.SecurityException ex) {
-            Log.i(TAG, "fail to request location update, ignore", ex);
-        } catch (IllegalArgumentException ex) {
-            Log.d(TAG, "gps provider does not exist " + ex.getMessage());
-        }
-    }
-
-    private void initializeLocationManager() {
-        Log.i(TAG, "initializeLocationManager");
-        if (mLocationManager == null) {
-            mLocationManager = (LocationManager) getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
-        }
-    }
-
-    private void stackLocation(Location location)
-    {
-        if (location != null) {
-
-            LocationData lct = new LocationData();
-            lct.latitude = location.getLatitude();
-            lct.longitude = location.getLongitude();
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-            lct.time = sdf.format(new Date());
-            LocationDataArray.add(lct);
-        }
-
-        Log.i(TAG, String.format("LocationDataArrayCount=%d", LocationDataArray.size()) );
-        if( LocationDataArray.size() > LOCATION_STACK_NUMBER - 1 ) {
-            new HttpResponsAsync().execute("api/entries/");
-        }
     }
 
     /**
