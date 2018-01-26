@@ -88,6 +88,12 @@ public class WalkerService extends Service {
     private static final double LOCATION_TOLERANCE = 9e-5;
 
     /**
+     *  set ACCURACY_DECIMAL_POINT = 2, then 123.43564 -> 123.44
+     */
+    private static final int ACCURACY_DECIMAL_POINT = 2;
+    private static final int DURATION_DECIMAL_POINT = 2;
+
+    /**
      * Stores the types of location services the client is interested in using. Used for checking
      * settings to determine if the device has optimal location settings.
      */
@@ -106,6 +112,18 @@ public class WalkerService extends Service {
     }
     private ArrayList<LocationData> LocationDataArray = new ArrayList<>();
 
+    /**
+     *
+     * @param v         It is a value which is be rounded off
+     * @param point     It is a decimal point, that is if this number is 2, then 1234.34543 becomes 1234.35.
+     * @return
+     */
+    private double RoundOffDouble( double v, int point )
+    {
+        return Math.round( v * Math.pow(10, (double)point ))
+                / Math.pow(10, (double)point );
+    }
+
     private LocationCallBack callback = new LocationCallBack() {
         @Override
         public void stackLocation(Location location) {
@@ -114,9 +132,14 @@ public class WalkerService extends Service {
                 Date current = new Date();
                 int stackSize = LocationDataArray.size();
                 if( stackSize > 0 ) {
+
+                    // get latest Location value and update its duration value.
                     LocationData last = LocationDataArray.get(stackSize-1);
-                    last.duration = (double)( current.getTime() - last.time.getTime())
+
+
+                    double d = (double)( current.getTime() - last.time.getTime())
                             / (double)java.util.concurrent.TimeUnit.MINUTES.toMillis(1);
+                    last.duration = RoundOffDouble( d, DURATION_DECIMAL_POINT );
 
                     if( Math.abs( location.getLatitude() - last.latitude ) < LOCATION_TOLERANCE
                         && Math.abs( location.getLongitude() - last.longitude ) < LOCATION_TOLERANCE ) {
@@ -129,7 +152,7 @@ public class WalkerService extends Service {
                 LocationData lct = new LocationData();
                 lct.latitude = location.getLatitude();
                 lct.longitude = location.getLongitude();
-                lct.accuracy = location.getAccuracy();
+                lct.accuracy = RoundOffDouble( location.getAccuracy(), ACCURACY_DECIMAL_POINT );
 //                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 //                lct.time = sdf.format(new Date());
                 lct.time = new Date();

@@ -179,6 +179,8 @@ public class googleLocation {
         mLocationRequest.setFastestInterval(FASTEST_UPDATE_INTERVAL_IN_MILLISECONDS);
 
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+
+        mLocationRequest.setSmallestDisplacement(LOCATION_DISTANCE);
     }
 
     /**
