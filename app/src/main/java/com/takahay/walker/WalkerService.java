@@ -82,10 +82,10 @@ public class WalkerService extends Service {
     private static final String BASEURL = "https://ancient-dawn-23054.herokuapp.com/";
 
     /**
-     * 1 degree nearly equal 1.11 * 1e+5 meter.
+     *
      * That is, 10 m nearly equal 9e-5 degree.
      */
-    private static final double LOCATION_TOLERANCE = 9e-5;
+    private static final double LOCATION_DISTANCE_TOLERANCE_METER = 10.0;
 
     /**
      *  set ACCURACY_DECIMAL_POINT = 2, then 123.43564 -> 123.44
@@ -109,6 +109,7 @@ public class WalkerService extends Service {
         public Date time;
         // Time duration in minute.
         public double duration;
+        public double distance;
     }
     private ArrayList<LocationData> LocationDataArray = new ArrayList<>();
     private LocationData mLastLocationData = null;
@@ -125,6 +126,35 @@ public class WalkerService extends Service {
                 / Math.pow(10, (double)point );
     }
 
+    /**
+     * Calculate distance between two points in latitude and longitude taking
+     * into account height difference. If you are not interested in height
+     * difference pass 0.0. Uses Haversine method as its base.
+     *
+     * lat1, lon1 Start point lat2, lon2 End point el1 Start altitude in meters
+     * el2 End altitude in meters
+     * @returns Distance in Meters
+     */
+    public static double getDistance(double lat1, double lon1, double el1,
+                                  double lat2, double lon2, double el2 ){
+
+        final int R = 6371; // Radius of the earth
+
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        double distance = R * c * 1000; // convert to meters
+
+        double height = el1 - el2;
+
+        distance = Math.pow(distance, 2) + Math.pow(height, 2);
+
+        return Math.sqrt(distance);
+    }
+
     private LocationCallBack callback = new LocationCallBack() {
         @Override
         public void stackLocation(Location location) {
@@ -134,11 +164,18 @@ public class WalkerService extends Service {
                 int stackSize = LocationDataArray.size();
                 if( mLastLocationData != null ) {
 
-                    // check distances between prev and current locations.
-                    if( Math.abs( location.getLatitude() - mLastLocationData.latitude ) < LOCATION_TOLERANCE
-                        && Math.abs( location.getLongitude() - mLastLocationData.longitude ) < LOCATION_TOLERANCE ) {
+                    double dist = getDistance(
+                            mLastLocationData.latitude,
+                            mLastLocationData.longitude,
+                            0.0,
+                            location.getLatitude(),
+                            location.getLongitude(),
+                            0.0);
 
-                        Log.i(TAG, String.format("Location is constant."));
+                    // check distances between prev and current locations.
+                    if( dist < LOCATION_DISTANCE_TOLERANCE_METER ) {
+
+                        Log.i(TAG, String.format("Location is constant. Distance = %f", dist));
                         return;
                     }
 
@@ -146,6 +183,9 @@ public class WalkerService extends Service {
                     double d = (double)( current.getTime() - mLastLocationData.time.getTime())
                             / (double)java.util.concurrent.TimeUnit.MINUTES.toMillis(1);
                     mLastLocationData.duration = RoundOffDouble( d, DURATION_DECIMAL_POINT );
+
+                    // calculate a distance between prev and current locations.
+                    mLastLocationData.distance = dist;
 
                     // stack last location data.
                     LocationDataArray.add(mLastLocationData);
@@ -271,6 +311,7 @@ public class WalkerService extends Service {
                     jobj.put("accuracy", d.accuracy);
                     jobj.put("time", sdf.format(d.time));
                     jobj.put("duration", d.duration);
+                    jobj.put("distance", d.distance);
                     jobj.put("host", 1);
                     jary.put(jobj);
                 }
