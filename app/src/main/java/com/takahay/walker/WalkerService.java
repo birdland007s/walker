@@ -111,6 +111,7 @@ public class WalkerService extends Service {
         public double duration;
     }
     private ArrayList<LocationData> LocationDataArray = new ArrayList<>();
+    private LocationData mLastLocationData = null;
 
     /**
      *
@@ -131,38 +132,42 @@ public class WalkerService extends Service {
 
                 Date current = new Date();
                 int stackSize = LocationDataArray.size();
-                if( stackSize > 0 ) {
+                if( mLastLocationData != null ) {
 
-                    // get latest Location value and update its duration value.
-                    LocationData last = LocationDataArray.get(stackSize-1);
+                    // check distances between prev and current locations.
+                    if( Math.abs( location.getLatitude() - mLastLocationData.latitude ) < LOCATION_TOLERANCE
+                        && Math.abs( location.getLongitude() - mLastLocationData.longitude ) < LOCATION_TOLERANCE ) {
 
-
-                    double d = (double)( current.getTime() - last.time.getTime())
-                            / (double)java.util.concurrent.TimeUnit.MINUTES.toMillis(1);
-                    last.duration = RoundOffDouble( d, DURATION_DECIMAL_POINT );
-
-                    if( Math.abs( location.getLatitude() - last.latitude ) < LOCATION_TOLERANCE
-                        && Math.abs( location.getLongitude() - last.longitude ) < LOCATION_TOLERANCE ) {
-
-                        Log.i(TAG, String.format("Location is constant, updated time duration of the last entity to %f", last.duration ) );
+                        Log.i(TAG, String.format("Location is constant."));
                         return;
                     }
-                }
 
-                LocationData lct = new LocationData();
-                lct.latitude = location.getLatitude();
-                lct.longitude = location.getLongitude();
-                lct.accuracy = RoundOffDouble( location.getAccuracy(), ACCURACY_DECIMAL_POINT );
-//                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-//                lct.time = sdf.format(new Date());
-                lct.time = new Date();
-                lct.duration = 0.0;
-                LocationDataArray.add(lct);
+                    // update the previous location's time duration.
+                    double d = (double)( current.getTime() - mLastLocationData.time.getTime())
+                            / (double)java.util.concurrent.TimeUnit.MINUTES.toMillis(1);
+                    mLastLocationData.duration = RoundOffDouble( d, DURATION_DECIMAL_POINT );
+
+                    // stack last location data.
+                    LocationDataArray.add(mLastLocationData);
+                }
             }
 
+            //Post locations to the web server, if the stack number is even to the limit.
             Log.i(TAG, String.format("LocationDataArrayCount=%d", LocationDataArray.size()) );
             if( LocationDataArray.size() > LOCATION_STACK_NUMBER - 1 ) {
                 new HttpResponsAsync().execute("api/entries/");
+            }
+
+            //Stack the current location. The duration should be updated when the next location is given.
+            if (location != null) {
+                mLastLocationData = new LocationData();
+                mLastLocationData.latitude = location.getLatitude();
+                mLastLocationData.longitude = location.getLongitude();
+                mLastLocationData.accuracy = RoundOffDouble( location.getAccuracy(), ACCURACY_DECIMAL_POINT );
+//                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+//                lct.time = sdf.format(new Date());
+                mLastLocationData.time = new Date();
+                mLastLocationData.duration = 0.0;
             }
         }
     };
