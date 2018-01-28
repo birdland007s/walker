@@ -79,13 +79,11 @@ public class WalkerService extends Service {
 
     private static final long LOCATION_STACK_NUMBER = 5;
 
-    private static final String BASEURL = "https://ancient-dawn-23054.herokuapp.com/";
-
     /**
      *
      * That is, 10 m nearly equal 9e-5 degree.
      */
-    private static final double LOCATION_DISTANCE_TOLERANCE_METER = 10.0;
+    private static final double LOCATION_DISTANCE_TOLERANCE_METER = 15.0;
 
     /**
      *  set ACCURACY_DECIMAL_POINT = 2, then 123.43564 -> 123.44
@@ -111,6 +109,7 @@ public class WalkerService extends Service {
         public double duration;
         public double distance;
     }
+
     private ArrayList<LocationData> LocationDataArray = new ArrayList<>();
     private LocationData mLastLocationData = null;
 
@@ -195,7 +194,31 @@ public class WalkerService extends Service {
             //Post locations to the web server, if the stack number is even to the limit.
             Log.i(TAG, String.format("LocationDataArrayCount=%d", LocationDataArray.size()) );
             if( LocationDataArray.size() > LOCATION_STACK_NUMBER - 1 ) {
-                new HttpResponsAsync().execute("api/entries/");
+
+                try {
+                    //set Location data to Json and clear.
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+                    JSONArray jary = new JSONArray();
+                    for (LocationData d : LocationDataArray) {
+                        JSONObject jobj = new JSONObject();
+                        jobj.put("longitude", d.longitude);
+                        jobj.put("latitude", d.latitude);
+                        jobj.put("accuracy", d.accuracy);
+                        jobj.put("time", sdf.format(d.time));
+                        jobj.put("duration", d.duration);
+                        jobj.put("distance", d.distance);
+                        jobj.put("host", 1);
+                        jary.put(jobj);
+
+                        Log.i(TAG, String.format("  BODY/n  %s", jary.toString()));
+                        new HttpResponsAsync().execute("api/entries/", jary.toString());
+                    }
+                    LocationDataArray.clear();
+                }
+                catch (JSONException error) {
+                    Log.i(TAG, error.toString());
+                }
+
             }
 
             //Stack the current location. The duration should be updated when the next location is given.
@@ -227,6 +250,7 @@ public class WalkerService extends Service {
     {
         Log.i(TAG, "onStartCommand");
         super.onStartCommand(intent, flags, startId);
+        int status = 0;
 
         int resultCode = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(getApplicationContext());
         if (resultCode != ConnectionResult.SUCCESS) {
@@ -235,7 +259,6 @@ public class WalkerService extends Service {
             com.takahay.walker.Location walkerLocation =
                     new com.takahay.walker.Location( getApplicationContext(), callback );
             walkerLocation.startLocationUpdates();
-
         }
         else
         {
@@ -251,6 +274,8 @@ public class WalkerService extends Service {
             Log.i(TAG, "finish create googleLocation request");
         }
 
+        new HttpResponsHelper().postStatusCode( 1, 1 );
+
         return START_STICKY;
     }
 
@@ -265,117 +290,7 @@ public class WalkerService extends Service {
     public void onDestroy()
     {
         Log.i(TAG, "onDestroy");
-
+        new HttpResponsHelper().postStatusCode( 2, 1 );
     }
 
-    /**
-     *    Provide a REST Post function.
-     */
-
-    class HttpResponsAsync extends android.os.AsyncTask<String, Void, String> {
-
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            // doInBackground前処理
-        }
-
-        @Override
-        protected String doInBackground(String... function) {
-
-            HttpURLConnection httpCon = null;
-            StringBuffer result = new StringBuffer();
-            try {
-                Log.i(TAG, String.format("Post Location Data to Web. [%s%s]", BASEURL, function[0]));
-                URL url = new URL(BASEURL + function[0]);
-
-                httpCon = (HttpURLConnection) url.openConnection();
-                httpCon.setDoOutput(true);
-                httpCon.setDoInput(true);
-                httpCon.setUseCaches(false);
-                httpCon.setRequestProperty("Content-Type", "application/json");
-                httpCon.setRequestProperty("Accept", "application/json");
-                httpCon.setRequestMethod("POST");
-
-                OutputStream os = httpCon.getOutputStream();
-                OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
-
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-
-                //set Location data to Json and clear.
-                JSONArray jary = new JSONArray();
-                for (LocationData d : LocationDataArray) {
-                    JSONObject jobj = new JSONObject();
-                    jobj.put("longitude", d.longitude);
-                    jobj.put("latitude", d.latitude);
-                    jobj.put("accuracy", d.accuracy);
-                    jobj.put("time", sdf.format(d.time));
-                    jobj.put("duration", d.duration);
-                    jobj.put("distance", d.distance);
-                    jobj.put("host", 1);
-                    jary.put(jobj);
-                }
-                LocationDataArray.clear();
-
-                //JSONObject jdt = new JSONObject();
-                //jdt.put("data",jary);
-
-
-                Log.i(TAG, String.format("  BODY/n  %s", jary.toString()));
-                osw.write(jary.toString());
-                osw.flush();
-                osw.close();
-                //os.close();
-                httpCon.connect();
-
-                // HTTPレスポンスコード
-                final int status = httpCon.getResponseCode();
-                if (status == HttpURLConnection.HTTP_CREATED) {
-                    // 通信に成功した
-                    // テキストを取得する
-                    final InputStream in = httpCon.getInputStream();
-                    String encoding = httpCon.getContentEncoding();
-                    if (null == encoding) {
-                        encoding = "UTF-8";
-                    }
-                    final InputStreamReader inReader = new InputStreamReader(in, encoding);
-                    final BufferedReader bufReader = new BufferedReader(inReader);
-                    String line = null;
-                    // 1行ずつテキストを読み込む
-                    while ((line = bufReader.readLine()) != null) {
-                        result.append(line);
-                    }
-                    bufReader.close();
-                    inReader.close();
-                    in.close();
-                } else {
-                    Log.i(TAG, String.format("HttpURLConnection response:  %s", status));
-                }
-            } catch (MalformedURLException error) {
-                //Handles an incorrectly entered URL
-                Log.i(TAG, error.toString());
-            } catch (SocketTimeoutException error) {
-//Handles URL access timeout.
-                Log.i(TAG, error.toString());
-
-            } catch (IOException error) {
-//Handles input and output errors
-                Log.i(TAG, error.toString());
-
-            } catch (JSONException error) {
-                Log.i(TAG, error.toString());
-            } finally {
-                if (httpCon != null) httpCon.disconnect();
-            }
-
-            Log.i(TAG, String.format("HttpURLConnection result:  %s", result.toString()));
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(String result) {
-            super.onPostExecute(result);
-            // doInBackground後処理
-        }
-    }
 }

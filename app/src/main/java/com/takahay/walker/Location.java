@@ -5,6 +5,12 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 /**
  * Created by takahay on 2018/01/24.
  */
@@ -16,9 +22,9 @@ public class Location {
     /**
      * The desired interval for location updates. Inexact. Updates may be more or less frequent.
      */
-    private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 30000;
+    private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 90000;
 
-    private static final float LOCATION_DISTANCE = 10f;
+    private static final float LOCATION_DISTANCE = 15f;
 
     private LocationManager mLocationManager = null;
 
@@ -59,6 +65,9 @@ public class Location {
         } catch (IllegalArgumentException ex) {
             Log.d(TAG, "gps provider does not exist " + ex.getMessage());
         }
+
+        new HttpResponsHelper().postStatusCode( 3, 1 );
+
     }
 
     private void initializeLocationManager() {

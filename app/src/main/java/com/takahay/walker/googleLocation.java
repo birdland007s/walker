@@ -21,6 +21,12 @@ import com.google.android.gms.location.SettingsClient;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 /**
  * Created by takahay on 2018/01/24.
  */
@@ -32,9 +38,9 @@ public class googleLocation {
     /**
      * The desired interval for location updates. Inexact. Updates may be more or less frequent.
      */
-    private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 30000;
+    private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 90000;
 
-    private static final float LOCATION_DISTANCE = 10f;
+    private static final float LOCATION_DISTANCE = 15f;
     /**
      * The fastest rate for active location updates. Exact. Updates will never be more frequent
      * than this value.
@@ -124,6 +130,8 @@ public class googleLocation {
 
 
         Log.i(TAG, "googleLocation - finish");
+        new HttpResponsHelper().postStatusCode( 3, 1 );
+
     }
 
     /**
