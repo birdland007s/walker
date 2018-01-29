@@ -1,46 +1,13 @@
 package com.takahay.walker;
 
-import android.app.Activity;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentSender;
-import android.icu.util.TimeUnit;
-import android.os.Bundle;
 import android.os.IBinder;
-import android.os.Looper;
 import android.util.Log;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
 import android.location.Location;
-import android.location.LocationManager;
-import android.location.LocationListener;
-import android.net.Uri;
-import android.provider.Settings;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
-import android.view.View;
-import android.widget.TextView;
-import android.widget.Toast;
 
-import com.google.android.gms.common.api.ApiException;
-import com.google.android.gms.common.api.ResolvableApiException;
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationCallback;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationResult;
-import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
-import com.google.android.gms.location.LocationSettingsResponse;
-import com.google.android.gms.location.LocationSettingsStatusCodes;
-import com.google.android.gms.location.SettingsClient;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.gms.tasks.Task;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.ConnectionResult;
 
@@ -48,21 +15,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.SocketTimeoutException;
-import java.net.URL;
 import java.text.SimpleDateFormat;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Locale;
 
 /**
  * Created by takahay on 2018/01/22.
@@ -70,7 +25,7 @@ import java.util.Locale;
 
 
 public class WalkerService extends Service {
-    private static final String TAG = "WalkerService";
+    private static final String TAG = "walker.WalkerService";
 
     /**
      * Constant used in the location settings dialog.
@@ -159,6 +114,11 @@ public class WalkerService extends Service {
         public void stackLocation(Location location) {
             if (location != null) {
 
+                Log.i(TAG, String.format("Location = [%.2f, %.2f], accuracy = %.2f",
+                        location.getLatitude(),
+                        location.getLongitude(),
+                        location.getAccuracy()));
+
                 Date current = new Date();
                 int stackSize = LocationDataArray.size();
                 if( mLastLocationData != null ) {
@@ -192,7 +152,10 @@ public class WalkerService extends Service {
             }
 
             //Post locations to the web server, if the stack number is even to the limit.
-            Log.i(TAG, String.format("LocationDataArrayCount=%d", LocationDataArray.size()) );
+            Log.i(TAG, String.format("LocationDataArrayCount=%d, Accuracy=%s",
+                    LocationDataArray.size(),
+                    (mLastLocationData==null) ?
+                            "N/C" :  String.format("%f", mLastLocationData.accuracy) ) );
             if( LocationDataArray.size() > LOCATION_STACK_NUMBER - 1 ) {
 
                 try {
@@ -248,9 +211,9 @@ public class WalkerService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId)
     {
-        Log.i(TAG, "onStartCommand");
+        Log.i(TAG, String.format("onStartCommand flags[%d] startId[%d]", flags, startId));
         super.onStartCommand(intent, flags, startId);
-        int status = 0;
+        boolean status;
 
         int resultCode = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(getApplicationContext());
         if (resultCode != ConnectionResult.SUCCESS) {
@@ -258,7 +221,7 @@ public class WalkerService extends Service {
 
             com.takahay.walker.Location walkerLocation =
                     new com.takahay.walker.Location( getApplicationContext(), callback );
-            walkerLocation.startLocationUpdates();
+            status = walkerLocation.startLocationUpdates();
         }
         else
         {
@@ -267,14 +230,11 @@ public class WalkerService extends Service {
             com.takahay.walker.googleLocation googleLocation =
                     new com.takahay.walker.googleLocation( getApplicationContext(), callback );
 
-            Log.i(TAG, "finish create googleLocation");
+            status = googleLocation.createRequest();
 
-            googleLocation.createRequest();
-
-            Log.i(TAG, "finish create googleLocation request");
         }
 
-        new HttpResponsHelper().postStatusCode( 1, 1 );
+        new HttpResHelper().postStatusCode( 1, (status) ? 1 : 0 );
 
         return START_STICKY;
     }
@@ -290,7 +250,7 @@ public class WalkerService extends Service {
     public void onDestroy()
     {
         Log.i(TAG, "onDestroy");
-        new HttpResponsHelper().postStatusCode( 2, 1 );
+        new HttpResHelper().postStatusCode( 2, 1 );
     }
 
 }

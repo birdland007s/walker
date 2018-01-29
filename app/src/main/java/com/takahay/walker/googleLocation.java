@@ -1,16 +1,12 @@
 package com.takahay.walker;
 
 import android.content.Context;
-import android.content.Intent;
 import android.location.Location;
-import android.support.annotation.NonNull;
 import android.util.Log;
 import android.support.v4.content.ContextCompat;
-import android.app.PendingIntent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 
-import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -18,14 +14,6 @@ import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.SettingsClient;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
-
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 /**
  * Created by takahay on 2018/01/24.
@@ -33,14 +21,14 @@ import java.util.Date;
 
 public class googleLocation {
 
-    private static final String TAG = "googleLocation";
+    private static final String TAG = "walker.googleLocation";
 
     /**
      * The desired interval for location updates. Inexact. Updates may be more or less frequent.
      */
-    private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 90000;
+    private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 30000;
 
-    private static final float LOCATION_DISTANCE = 15f;
+    private static final float LOCATION_DISTANCE = 10f;
     /**
      * The fastest rate for active location updates. Exact. Updates will never be more frequent
      * than this value.
@@ -88,9 +76,9 @@ public class googleLocation {
         StackLocationCallback = callback;
     }
 
-    public void createRequest()
+    public boolean createRequest()
     {
-        Log.i(TAG, "googleLocation");
+        Log.i(TAG, "createRequest start");
 
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(mContext);
         mSettingsClient = LocationServices.getSettingsClient(mContext);
@@ -105,7 +93,7 @@ public class googleLocation {
                 ContextCompat.checkSelfPermission( mContext, android.Manifest.permission.ACCESS_FINE_LOCATION ) != PackageManager.PERMISSION_GRANTED &&
                 ContextCompat.checkSelfPermission( mContext, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             Log.i(TAG, "createRequest permission error.");
-            return  ;
+            return false;
         }
 
         FusedLocationProviderClient client =
@@ -123,15 +111,18 @@ public class googleLocation {
 //                    }
 //                });
 
+
+        /**
+         *  Looper : 	The Looper object whose message queue will be used to
+         *  implement the callback mechanism, or null to make callbacks on the calling thread.
+         */
         client.requestLocationUpdates(mLocationRequest,
                 mLocationCallback,
                 null /* Looper */);
 
-
-
-        Log.i(TAG, "googleLocation - finish");
-        new HttpResponsHelper().postStatusCode( 3, 1 );
-
+        new HttpResHelper().postStatusCode( 3, 1 );
+        Log.i(TAG, "createRequest finish");
+        return true;
     }
 
     /**
@@ -151,8 +142,13 @@ public class googleLocation {
                 Log.i(TAG, "onLocationResult");
 
                 //mCurrentLocation = locationResult.getLastLocation();
-                Location lot = locationResult.getLastLocation();
-                StackLocationCallback.stackLocation(lot);
+                //Location lot = locationResult.getLastLocation();
+                //StackLocationCallback.stackLocation(lot);
+
+                for (Location lot : locationResult.getLocations()) {
+                    StackLocationCallback.stackLocation(lot);
+                }
+
 
             }
         };

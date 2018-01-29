@@ -35,17 +35,15 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-
-
         final Button button_start = findViewById(R.id.button_start);
         button_start.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                Log.i(TAG, "onClick Start");
+                Log.i(TAG, String.format("onClick Start view[%s]", v.getTransitionName()));
 
                 if (!checkPermissions()) {
                     requestPermissions();
                 } else {
-                    Log.i(TAG, "Permission Granted");
+                    Log.i(TAG, "onCreate.Permission Granted");
                     startService(new Intent(MainActivity.this, WalkerService.class));
                 }
             }
@@ -54,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
         final Button button_stop = findViewById(R.id.button_stop);
         button_stop.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                Log.i(TAG, "onClick Stop");
+                Log.i(TAG, String.format("onClick Stop view[%s]", v.getTransitionName()));
                 stopService(new Intent(MainActivity.this, WalkerService.class));
             }
         });
@@ -145,11 +143,11 @@ public class MainActivity extends AppCompatActivity {
                 Log.i(TAG, "User interaction was cancelled.");
             } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Permission granted.
-                Log.i(TAG, "Permission Granted");
+                Log.i(TAG, "onRequestPermissionsResult.Permission Granted");
                 startService(new Intent(MainActivity.this, WalkerService.class));
             } else {
                 // Permission denied.
-                Log.i(TAG, "Permission Denied");
+                Log.i(TAG, "onRequestPermissionsResult.Permission Denied");
 
                 // Notify the user via a SnackBar that they have rejected a core permission for the
                 // app, which makes the Activity useless. In a real app, core permissions would

@@ -5,19 +5,13 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
 /**
  * Created by takahay on 2018/01/24.
  */
 
 public class Location {
 
-    private static final String TAG = "walkerLocation";
+    private static final String TAG = "walker.Location";
 
     /**
      * The desired interval for location updates. Inexact. Updates may be more or less frequent.
@@ -44,30 +38,34 @@ public class Location {
      * Requests location updates from the FusedLocationApi. Note: we don't call this unless location
      * runtime permission has been granted.
      */
-    public void startLocationUpdates() {
-        Log.e(TAG, "onCreate");
+    public boolean startLocationUpdates() {
+        boolean status = false;
+        Log.e(TAG, "startLocationUpdates start");
         initializeLocationManager();
         try {
             mLocationManager.requestLocationUpdates(
                     LocationManager.NETWORK_PROVIDER, UPDATE_INTERVAL_IN_MILLISECONDS, LOCATION_DISTANCE,
                     mLocationListeners[1]);
+            status = true;
         } catch (java.lang.SecurityException ex) {
             Log.i(TAG, "fail to request location update, ignore", ex);
         } catch (IllegalArgumentException ex) {
             Log.d(TAG, "network provider does not exist, " + ex.getMessage());
         }
+
         try {
             mLocationManager.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER, UPDATE_INTERVAL_IN_MILLISECONDS, LOCATION_DISTANCE,
                     mLocationListeners[0]);
+            status = true;
         } catch (java.lang.SecurityException ex) {
             Log.i(TAG, "fail to request location update, ignore", ex);
         } catch (IllegalArgumentException ex) {
             Log.d(TAG, "gps provider does not exist " + ex.getMessage());
         }
 
-        new HttpResponsHelper().postStatusCode( 3, 1 );
-
+        new HttpResHelper().postStatusCode( 3, 1 );
+        return status;
     }
 
     private void initializeLocationManager() {

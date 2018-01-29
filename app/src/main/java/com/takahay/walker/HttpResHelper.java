@@ -12,7 +12,7 @@ import java.util.Date;
  * Created by takahay on 2018/01/28.
  */
 
-public class HttpResponsHelper {
+public class HttpResHelper {
     public void postStatusCode( int code, int status )
     {
         try{
@@ -25,7 +25,7 @@ public class HttpResponsHelper {
             new HttpResponsAsync().execute("api/processlogs/", jobj.toString());
         }
         catch (JSONException error) {
-            Log.i("HttpResponsHelper", error.toString());
+            Log.i("walker.HttpResHelper", error.toString());
         }
     }
 }

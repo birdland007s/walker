@@ -26,7 +26,7 @@ import java.util.Date;
 public class HttpResponsAsync extends AsyncTask<String, Void, String> {
 
     private static final String BASEURL = "https://ancient-dawn-23054.herokuapp.com/";
-    private static final String TAG = "HttpResponsAsync";
+    private static final String TAG = "walker.HttpResponsAsync";
 
     @Override
     protected void onPreExecute() {
